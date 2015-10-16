@@ -1,0 +1,9 @@
+*.class
+
+# Package Files #
+*.jar
+*.war
+*.ear
+build for server.jardesc
+build for release.jardesc
+/bin/

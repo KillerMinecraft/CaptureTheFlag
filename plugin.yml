@@ -1,0 +1,7 @@
+name: Capture_the_Flag
+main: com.ftwinston.KillerMinecraft.Modules.CaptureTheFlag.Plugin
+depend: [Killer_Minecraft]
+version: 1
+load: STARTUP
+description: A game mode for Killer Minecraft
+author: FTWinston
