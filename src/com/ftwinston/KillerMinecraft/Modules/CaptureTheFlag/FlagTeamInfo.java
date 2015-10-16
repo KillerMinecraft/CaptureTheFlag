@@ -13,15 +13,20 @@ import com.ftwinston.KillerMinecraft.Configuration.TeamInfo;
 public abstract class FlagTeamInfo extends TeamInfo {
 	public Score score;
 	public Location flagLocation;
+	public FlagState flagState = FlagState.Safe;
+	public FlagTeamInfo otherTeam;
+	public static final String flagNameSuffix = " flag"; 
 	
 	public ItemStack createBannerItem() 
 	{
 		ItemStack stack = new ItemStack(Material.BANNER);
 		BannerMeta banner = (BannerMeta)stack.getItemMeta();
 		
+		banner.setDisplayName(getName() + flagNameSuffix);
 		setupBanner(banner);
 		
 		stack.setItemMeta(banner);
+		
 		return stack;
 	}
 	
@@ -39,4 +44,11 @@ public abstract class FlagTeamInfo extends TeamInfo {
 
 	protected abstract void setupBanner(BannerMeta banner);
 	protected abstract void setupBanner(Banner banner);
+	
+	enum FlagState
+	{
+		Safe,
+		Dropped,
+		Carried,
+	}
 }
