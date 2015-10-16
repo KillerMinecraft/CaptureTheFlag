@@ -13,18 +13,28 @@ import org.bukkit.World.Environment;
 import org.bukkit.block.Block;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.banner.PatternType;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.EventException;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
@@ -44,9 +54,9 @@ public class CaptureTheFlag extends GameMode
 	boolean inSetup;
 	int setupProcessID = -1;
 	static final long ticksPerMinute = 1200L;
-	static final int flagRoomDiameter = 3;
+	static final int flagRoomDiameter = 3, respawnDelayTicks = 120;
 
-	LinkedList<Location> powerupSpawners, equipmentSpawners;
+	LinkedList<ItemSpawner> spawners;
 	
 	public CaptureTheFlag()
 	{
@@ -54,8 +64,7 @@ public class CaptureTheFlag extends GameMode
 		blueTeam.otherTeam = redTeam;
 		setTeams(teams);
 		
-		powerupSpawners = new LinkedList<Location>();
-		equipmentSpawners = new LinkedList<Location>();
+		spawners = new LinkedList<ItemSpawner>();
 	}
 	
 	@Override
@@ -152,12 +161,10 @@ public class CaptureTheFlag extends GameMode
 	@Override
 	public boolean isLocationProtected(Location l, Player player)
 	{
-		if (redTeam.flagLocation != null && isWithinProtectionRange(l, redTeam.flagLocation))
-			return true;
-		
-		if (blueTeam.flagLocation != null && isWithinProtectionRange(l, blueTeam.flagLocation))
-			return true;
-		
+		for (FlagTeamInfo team : teams)
+			if (team.flagLocation != null && isWithinProtectionRange(l, team.flagLocation))
+				return true;
+
 		return false;
 	}
 	
@@ -226,13 +233,20 @@ public class CaptureTheFlag extends GameMode
 	}
 
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-	public void onEvent(InventoryPickupItemEvent event) throws EventException
+	public void onEvent(InventoryPickupItemEvent event)
 	{
 		ItemStack stack = event.getItem().getItemStack(); 
 		if (stack.getType() != Material.BANNER)
 			return;
 		
-		FlagTeamInfo flagTeam = determineFlagTeam(stack);
+		FlagTeamInfo flagTeam = null;
+		for (FlagTeamInfo team : teams)
+			if (event.getItem().getEntityId() == team.droppedFlagEntityID)
+			{
+				flagTeam = team;
+				break;
+			}
+		
 		if (flagTeam == null)
 			return;
 		
@@ -244,6 +258,7 @@ public class CaptureTheFlag extends GameMode
 		
 		Player player = (Player)event.getInventory().getHolder();
 		TeamInfo playerTeam = getTeam(player);
+		flagTeam.droppedFlagEntityID = -1;
 		
 		if (playerTeam == flagTeam)
 		{
@@ -282,7 +297,7 @@ public class CaptureTheFlag extends GameMode
 			if (stack.getType() == Material.BANNER || stack.getType() == Material.GOLD_PLATE || stack.getType() == Material.IRON_PLATE)
 				event.setCancelled(true);
 		}
-		else
+		else if (stack.getType() == Material.BANNER)
 		{
 			// if player drops the banner, show a message (and update the state)
 			FlagTeamInfo flagTeam = determineFlagTeam(stack);
@@ -291,8 +306,7 @@ public class CaptureTheFlag extends GameMode
 
 			broadcastMessage(event.getPlayer().getName() + " dropped the " + flagTeam.getChatColor() + flagTeam.getName() + ChatColor.RESET + " flag!");
 			flagTeam.flagState = FlagState.Dropped;
-			
-			flagTeam.droppedFlagID = event.getItemDrop().getEntityId();
+			flagTeam.droppedFlagEntityID = event.getItemDrop().getEntityId();
 		}
     }
 
@@ -417,25 +431,8 @@ public class CaptureTheFlag extends GameMode
 			}
 		}
 		
-		int someProcessID = getScheduler().scheduleSyncRepeatingTask(getPlugin(), new Runnable() {
-			public void run()
-			{
-				// TODO: spawn equipment or something ... each spawner should have its own process, really
-				// equipment spawn timer should be updated when the item is actually picked up
-
-				// equipment spawners should spawn weapons/equipment/armor. Armor should be APPLIED AUTOMATICALLY WHEN PICKED UP, if not already wearing.
-			}
-		}, 0L, 600L); // equipment spawns right away, and then every 30s
-		
-		int someOtherProcessID = getScheduler().scheduleSyncRepeatingTask(getPlugin(), new Runnable() {
-			public void run()
-			{
-				// TODO: spawn powerups or something ... each spawner should have its own process, really
-				// powerup spawn timer should be updated when the item is actually picked up
-				
-				// powerup spawners should spawn powerup potions THAT ARE APPLIED AUTOMATICALLY WHEN PICKED UP
-			}
-		}, random.nextInt(30) + 15L, 600L); // powerups spawn after a random initial delay, and then every 45s
+		for (ItemSpawner spawner : spawners)
+			spawner.enable();
 	}
 
 	private void createFlagRoom(FlagTeamInfo team)
@@ -482,19 +479,22 @@ public class CaptureTheFlag extends GameMode
 			for (Player carrier : getOnlinePlayers(new PlayerFilter().team(playerTeam)))
 				if (carrier.getInventory().contains(Material.BANNER))
 					return carrier.getLocation();
-			// deliberately flow through to next case, if flag not found
+			// deliberately fall through to next case, if flag not found
 			
-		case Dropped:
-			; // TODO: find flag item ON THE GROUND and point at that
+		case Dropped: // find flag item ON THE GROUND and point at that
+			Item flagItem = findFlagItem(playerTeam.otherTeam);
+			if (flagItem != null)
+				return flagItem.getLocation();
 		}
 		
 		return null;
 	}
 
-	@EventHandler(priority = EventPriority.HIGH)
-	public void onEvent(BlockPlaceEvent event) throws EventException
+	@EventHandler(priority = EventPriority.HIGHEST)
+	public void onEvent(BlockPlaceEvent event)
 	{
 		Material type = event.getBlock().getType();
+		
 		if (type == Material.STANDING_BANNER)
 		{
 			FlagTeamInfo flagTeam = determineFlagTeam(event.getItemInHand());
@@ -505,47 +505,146 @@ public class CaptureTheFlag extends GameMode
 				createFlagRoom(flagTeam);
 			}
 			else
-			{
-				// TODO: when flag is placed by a player, adjacent to their own flag, give them a point and "respawn" it. otherwise when flag is placed otherwise, disallow
-				// how does this interact with protection?
-			
-				
-				// increase score... if the limit is reached, win the game
-				int score = flagTeam.otherTeam.score.getScore() + 1;
-				flagTeam.otherTeam.score.setScore(score);
-				
-				if (score >= scoreLimit.getValue())
-					finishGame();
-			}
+				event.setCancelled(true);
 		}
 		else if (type == Material.WALL_BANNER)
 		{
 			event.setCancelled(true);
-			event.getPlayer().sendMessage(ChatColor.YELLOW + "Place the flag on the ground, rather than on a wall");
+			if (inSetup)
+				event.getPlayer().sendMessage(ChatColor.YELLOW + "Place the flag on the ground, rather than on a wall");
 			return;
 		}
 		else if (type == Material.IRON_PLATE && inSetup)
 		{
-			equipmentSpawners.add(event.getBlock().getLocation());
+			spawners.add(new ItemSpawner(this, ItemSpawner.Type.Equipment, event.getBlock().getLocation()));
 		}
 		else if (type == Material.GOLD_PLATE && inSetup)
 		{
-			powerupSpawners.add(event.getBlock().getLocation());
+			spawners.add(new ItemSpawner(this, ItemSpawner.Type.Powerup, event.getBlock().getLocation()));
 		}
 	}
 	
-	// TODO: update team flag state when the item is destroyed
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onPlayerInteract(PlayerInteractEvent event)
+	{
+		// if player trod on a protected pressure plate, this is one of the ones surrounding one of the flags
+		if(event.getClickedBlock() == null || event.getClickedBlock().getType() != Material.STONE_PLATE || event.getAction() != Action.PHYSICAL || !isLocationProtected(event.getClickedBlock().getLocation(), event.getPlayer()) )
+			return;
+		
+	  	// see if this player is carrying the other team's flag
+		if (!event.getPlayer().getInventory().contains(Material.BANNER))
+			return;
+		
+		// are they at their OWN flag?
+		FlagTeamInfo playerTeam = (FlagTeamInfo)getTeam(event.getPlayer());
+		if (event.getClickedBlock().getLocation().distanceSquared(playerTeam.flagLocation) > 9)
+			return;
+
+		broadcastMessage(event.getPlayer().getName() + " captured the " + playerTeam.otherTeam.getChatColor() + playerTeam.otherTeam.getName() + ChatColor.RESET + " flag!");
+		event.getPlayer().getInventory().remove(Material.BANNER);
+				
+		// increase score... if the limit is reached, win the game
+		int score = playerTeam.score.getScore() + 1;
+		playerTeam.score.setScore(score);
+		
+		if (score >= scoreLimit.getValue())
+			finishGame();
+	}
 	
-	// TODO: flags auto-return 30 seconds after being dropped
+	private Item findFlagItem(FlagTeamInfo team)
+	{
+		for (Item item : getWorld(0).getEntitiesByClass(Item.class))
+			if (item.getEntityId() == team.droppedFlagEntityID)
+				return item;
+		
+		return null;
+	}
+
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onEvent(org.bukkit.event.entity.EntityCombustEvent event)
+	{
+		if (event.getEntityType() != EntityType.DROPPED_ITEM)
+			return;
+		
+		Item entity = (Item) event.getEntity();
+		if (entity.getItemStack().getType() != Material.BANNER)
+			return;
+		
+		for (FlagTeamInfo team : teams)
+			if (team.flagState == FlagState.Dropped && entity.getEntityId() == team.droppedFlagEntityID)
+			{
+				team.createBannerBlock(team.flagLocation);
+				team.flagState = FlagState.Safe;
+				team.droppedFlagEntityID = -1;
+				broadcastMessage("The " + team.getChatColor() + team.getName() + ChatColor.RESET + " flag was returned");
+			}
+	}
 	
-	// TODO: don't let players place the flag into any other inventory
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onEvent(org.bukkit.event.entity.ItemDespawnEvent event)
+	{
+		if (event.getEntity().getItemStack().getType() != Material.BANNER)
+			return;
+		
+		for (FlagTeamInfo team : teams)
+			if (team.flagState == FlagState.Dropped && event.getEntity().getEntityId() == team.droppedFlagEntityID)
+			{
+				team.createBannerBlock(team.flagLocation);
+				team.flagState = FlagState.Safe;
+				team.droppedFlagEntityID = -1;
+				broadcastMessage("The " + team.getChatColor() + team.getName() + ChatColor.RESET + " flag was returned");
+			}		
+	}
 	
-	// TODO: prevent renaming banners, ever
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onEvent(InventoryMoveItemEvent event)
+	{
+		// hoppers must never suck up flags
+		if (event.getItem().getType() == Material.BANNER)
+			event.setCancelled(true);
+	}
 	
-	// TODO: when respawning, if not in setup, spawn with a brief period of invisiblity/immobility
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onEvent(InventoryClickEvent event) {
+        Inventory top = event.getView().getTopInventory();
+        Inventory bottom = event.getView().getBottomInventory();
+
+        // don't let players place the flag into any other inventory
+        if(top != null && bottom != null && top.getType() != InventoryType.PLAYER)
+            if(event.getCurrentItem() != null && event.getCurrentItem().getType() == Material.BANNER)
+            	if (event.getRawSlot() > top.getSize())
+                    event.setCancelled(true);
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
+	public void onEvent(PlayerRespawnEvent event)
+	{
+		if (inSetup)
+			return;
+
+		// when respawning, if not in setup, spawn with a brief period of immobility
+		Player player = event.getPlayer();
+		player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, respawnDelayTicks, 50, false, false));
+		player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, respawnDelayTicks, 50, false, false));
+		player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, respawnDelayTicks, 50, false, false));
+		
+		// and invisibility
+		for (Player other : getOnlinePlayers(new PlayerFilter().exclude(player)))
+			other.hidePlayer(player);
+		
+		final String playerName = event.getPlayer().getName();
+		getScheduler().scheduleSyncDelayedTask(getPlugin(), new Runnable() {
+			public void run()
+			{
+				Player player = Helper.getPlayer(playerName);
+				for (Player other : getOnlinePlayers(new PlayerFilter().exclude(player)))
+					other.showPlayer(player);
+			}
+		}, (long)respawnDelayTicks);
+	}
 	
 	@EventHandler(priority = EventPriority.HIGH)
-	public void onEvent(PrepareItemCraftEvent event) throws EventException
+	public void onEvent(PrepareItemCraftEvent event)
 	{
 		// prevent crafting banners at all, and golden plates or iron plates during setup
 		Material type = event.getInventory().getResult().getType();
@@ -571,6 +670,9 @@ public class CaptureTheFlag extends GameMode
 			getScheduler().cancelTask(setupProcessID);
 			setupProcessID = -1;
 		}
+		
+		for (ItemSpawner spawner : spawners)
+			spawner.disable();
 	}
 
 	@Override

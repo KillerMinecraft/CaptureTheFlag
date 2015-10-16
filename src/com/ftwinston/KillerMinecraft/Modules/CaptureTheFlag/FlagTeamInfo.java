@@ -14,6 +14,7 @@ public abstract class FlagTeamInfo extends TeamInfo {
 	public Score score;
 	public Location flagLocation;
 	public FlagState flagState = FlagState.Safe;
+	public int droppedFlagEntityID;
 	public FlagTeamInfo otherTeam;
 	public static final String flagNameSuffix = " flag"; 
 	
