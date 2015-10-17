@@ -20,7 +20,7 @@ public class ItemSpawner
 	private Location location;
 	private int scheduledTaskID = -1, spawnedItemID;
 	private Runnable checkPickupTask, spawnItemTask;
-	static final long checkInterval = 200L;
+	static final long checkInterval = 250L;
 	
 	public ItemSpawner(CaptureTheFlag g, Type t, Location l)
 	{
@@ -32,7 +32,7 @@ public class ItemSpawner
 			public void run()
 			{
 				// see if item has been picked up
-				if (droppedEntityExists())
+				if (checkBroken() || droppedEntityExists())
 					return;
 				
 				// item has been picked up, so prepare to spawn another item
@@ -41,7 +41,7 @@ public class ItemSpawner
 				{
 				default:
 				case Equipment:
-					delay = 600L; break;
+					delay = 400L; break;
 				case Powerup:
 					delay = 1200L; break;
 				}
@@ -53,6 +53,9 @@ public class ItemSpawner
 		spawnItemTask = new Runnable() {
 			public void run()
 			{
+				if (checkBroken())
+					return;
+				
 				// create item
 				ItemStack stack;
 				
@@ -95,6 +98,16 @@ public class ItemSpawner
 			game.getScheduler().cancelTask(scheduledTaskID);
 			scheduledTaskID = -1;
 		}
+	}
+
+	private boolean checkBroken()
+	{
+		if (location.getBlock().getType() == Material.IRON_PLATE || location.getBlock().getType() == Material.GOLD_PLATE)
+			return false;
+			
+		disable();
+		game.spawners.remove(this);
+		return true;
 	}
 	
 	private boolean droppedEntityExists()
@@ -154,11 +167,11 @@ public class ItemSpawner
 		case 3:
 			return new ItemStack(Material.REDSTONE, 8);
 		case 4:
-			return new ItemStack(Material.COAL, 10);
+			return new ItemStack(Material.COAL, 16);
 		case 5:
 			return new ItemStack(Material.SLIME_BLOCK, 2);
 		case 6:
-			return new ItemStack(Material.SOUL_SAND, 4);
+			return new ItemStack(Material.SOUL_SAND, 6);
 		case 7:
 		case 8:
 			return createPotion(PotionType.INVISIBILITY);
