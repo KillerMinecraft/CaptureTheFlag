@@ -11,8 +11,6 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
 import org.bukkit.block.Block;
-import org.bukkit.block.banner.Pattern;
-import org.bukkit.block.banner.PatternType;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -81,39 +79,28 @@ public class CaptureTheFlag extends GameMode
 	FlagTeamInfo redTeam = new FlagTeamInfo() {
 		@Override
 		public String getName() { return "red team"; }
+		
 		@Override
 		public ChatColor getChatColor() { return ChatColor.RED; }
 		
-		protected void setupBanner(org.bukkit.block.Banner banner)
-		{
-			banner.setBaseColor(DyeColor.RED);
-			banner.addPattern(new Pattern(DyeColor.YELLOW, PatternType.STRIPE_DOWNRIGHT));
-		};
+		@Override
+		public DyeColor getDyeColor() { return DyeColor.RED; }
 		
-		protected void setupBanner(org.bukkit.inventory.meta.BannerMeta banner)
-		{
-			banner.setBaseColor(DyeColor.RED);
-			banner.addPattern(new Pattern(DyeColor.YELLOW, PatternType.STRIPE_DOWNRIGHT));
-		};
+		@Override
+		public DyeColor getAccentColor() { return DyeColor.YELLOW; }
 	};
 	FlagTeamInfo blueTeam = new FlagTeamInfo() {
 		@Override
 		public String getName() { return "blue team"; }
+		
 		@Override
 		public ChatColor getChatColor() { return ChatColor.BLUE; }
 		
-		protected void setupBanner(org.bukkit.block.Banner banner)
-		{
-			banner.setBaseColor(DyeColor.BLUE);
-			banner.addPattern(new Pattern(DyeColor.GREEN, PatternType.STRIPE_DOWNLEFT));
-		};
+		@Override
+		public DyeColor getDyeColor() { return DyeColor.BLUE; }
 		
-		protected void setupBanner(org.bukkit.inventory.meta.BannerMeta banner)
-		{
-			banner.setBaseColor(DyeColor.BLUE);
-			banner.addPattern(new Pattern(DyeColor.GREEN, PatternType.STRIPE_DOWNLEFT));
-		};
-
+		@Override
+		public DyeColor getAccentColor() { return DyeColor.GREEN; }
 	};
 	
 	FlagTeamInfo[] teams = new FlagTeamInfo[] { redTeam, blueTeam };

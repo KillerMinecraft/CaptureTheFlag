@@ -1,9 +1,12 @@
 package com.ftwinston.KillerMinecraft.Modules.CaptureTheFlag;
 
+import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
+import org.bukkit.block.banner.Pattern;
+import org.bukkit.block.banner.PatternType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.scoreboard.Score;
@@ -24,7 +27,8 @@ public abstract class FlagTeamInfo extends TeamInfo {
 		BannerMeta banner = (BannerMeta)stack.getItemMeta();
 		
 		banner.setDisplayName(getName() + flagNameSuffix);
-		setupBanner(banner);
+		banner.setBaseColor(getDyeColor());
+		banner.addPattern(new Pattern(getAccentColor(), PatternType.STRIPE_DOWNRIGHT));
 		
 		stack.setItemMeta(banner);
 		
@@ -36,15 +40,14 @@ public abstract class FlagTeamInfo extends TeamInfo {
 		Block b = loc.getBlock();
 		b.setType(Material.STANDING_BANNER);
 		Banner banner = (Banner)b.getState();
-		
-		setupBanner(banner);
+		banner.setBaseColor(getDyeColor());
+		banner.addPattern(new Pattern(getAccentColor(), PatternType.STRIPE_DOWNRIGHT));
 		
 		banner.update();
 		return b;
 	}
 
-	protected abstract void setupBanner(BannerMeta banner);
-	protected abstract void setupBanner(Banner banner);
+	protected abstract DyeColor getAccentColor();
 	
 	enum FlagState
 	{
