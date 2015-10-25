@@ -51,7 +51,7 @@ public class CaptureTheFlag extends GameMode
 {
 	private final Material floorMaterial = Material.QUARTZ_BLOCK;
 	NumericOption setupTime, scoreLimit;
-	boolean inSetup;
+	boolean finishedSetup;
 	int setupProcessID = -1;
 	static final long ticksPerMinute = 1200L;
 	static final int flagRoomDiameter = 3, respawnDelayTicks = 120;
@@ -291,7 +291,7 @@ public class CaptureTheFlag extends GameMode
 	{
 		ItemStack stack = event.getItemDrop().getItemStack();
 		
-		if (inSetup)
+		if (!finishedSetup)
 		{
 			// during setup, you cannot drop any of the "game" items		
 			if (stack.getType() == Material.BANNER || stack.getType() == Material.GOLD_PLATE || stack.getType() == Material.IRON_PLATE)
@@ -313,7 +313,7 @@ public class CaptureTheFlag extends GameMode
 	@Override
 	protected void gameStarted()
 	{
-		inSetup = true;
+		finishedSetup = false;
 
 		// start setup timer task
 		setupProcessID = getScheduler().scheduleSyncRepeatingTask(getPlugin(), new Runnable() {
@@ -384,7 +384,7 @@ public class CaptureTheFlag extends GameMode
 
 	private void startActivePhase()
 	{
-		inSetup = false;
+		finishedSetup = true;
 		
 		for (Player player : getOnlinePlayers())
 		{
@@ -459,7 +459,7 @@ public class CaptureTheFlag extends GameMode
 	@Override
 	public Location getCompassTarget(Player player)
 	{
-		if (inSetup)
+		if (!finishedSetup)
 			return null;
 		
 		FlagTeamInfo playerTeam = (FlagTeamInfo)getTeam(player);
@@ -499,26 +499,26 @@ public class CaptureTheFlag extends GameMode
 		{
 			FlagTeamInfo flagTeam = determineFlagTeam(event.getItemInHand());
 			
-			if (inSetup)
+			if (finishedSetup)
+				event.setCancelled(true);
+			else
 			{
 				flagTeam.flagLocation = event.getBlock().getLocation();
 				createFlagRoom(flagTeam);
 			}
-			else
-				event.setCancelled(true);
 		}
 		else if (type == Material.WALL_BANNER)
 		{
 			event.setCancelled(true);
-			if (inSetup)
+			if (!finishedSetup)
 				event.getPlayer().sendMessage(ChatColor.YELLOW + "Place the flag on the ground, rather than on a wall");
 			return;
 		}
-		else if (type == Material.IRON_PLATE && inSetup)
+		else if (type == Material.IRON_PLATE && !finishedSetup)
 		{
 			spawners.add(new ItemSpawner(this, ItemSpawner.Type.Equipment, event.getBlock().getLocation()));
 		}
-		else if (type == Material.GOLD_PLATE && inSetup)
+		else if (type == Material.GOLD_PLATE && !finishedSetup)
 		{
 			spawners.add(new ItemSpawner(this, ItemSpawner.Type.Powerup, event.getBlock().getLocation()));
 		}
@@ -619,7 +619,7 @@ public class CaptureTheFlag extends GameMode
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEvent(PlayerRespawnEvent event)
 	{
-		if (inSetup)
+		if (!finishedSetup)
 			return;
 
 		// when respawning, if not in setup, spawn with a brief period of immobility
@@ -651,7 +651,7 @@ public class CaptureTheFlag extends GameMode
 		
 		if (type == Material.BANNER)
 			event.getInventory().setResult(null);
-		else if (inSetup && (type == Material.GOLD_PLATE || type == Material.IRON_PLATE))
+		else if (!finishedSetup && (type == Material.GOLD_PLATE || type == Material.IRON_PLATE))
 			event.getInventory().setResult(null);
 	}
 	
@@ -678,7 +678,7 @@ public class CaptureTheFlag extends GameMode
 	@Override
 	public Location getSpawnLocation(Player player)
 	{
-		if (inSetup)
+		if (finishedSetup)
 		{
 			Location spawnPoint = getWorld(0).getSpawnLocation();
 			return Helper.getSafeSpawnLocationNear(spawnPoint);
