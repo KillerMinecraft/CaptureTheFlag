@@ -265,9 +265,9 @@ public class CaptureTheFlag extends GameMode
 	
 	private FlagTeamInfo determineFlagTeam(ItemStack stack)
 	{
-		if (stack.getItemMeta().getDisplayName() == redTeam.getName() + FlagTeamInfo.flagNameSuffix)
+		if (stack.getItemMeta().getDisplayName().equals(redTeam.getName() + FlagTeamInfo.flagNameSuffix))
 			return redTeam;
-		else if (stack.getItemMeta().getDisplayName() == blueTeam.getName() + FlagTeamInfo.flagNameSuffix)
+		else if (stack.getItemMeta().getDisplayName().equals(blueTeam.getName() + FlagTeamInfo.flagNameSuffix))
 			return blueTeam;
 		else
 			return null; 
@@ -359,7 +359,7 @@ public class CaptureTheFlag extends GameMode
 				meta.setLore(equipmentSpawnerLore);
 				equipmentSpawner.setItemMeta(meta);
 				
-				ItemStack powerupSpawner = new ItemStack(Material.IRON_PLATE);
+				ItemStack powerupSpawner = new ItemStack(Material.GOLD_PLATE);
 				meta = powerupSpawner.getItemMeta();
 				meta.setDisplayName("Power-up spawner");
 				meta.setLore(powerupSpawnerLore);
@@ -490,6 +490,8 @@ public class CaptureTheFlag extends GameMode
 				event.setCancelled(true);
 			else
 			{
+				if (flagTeam == null)
+					return;
 				flagTeam.flagLocation = event.getBlock().getLocation();
 				createFlagRoom(flagTeam);
 			}
@@ -665,7 +667,7 @@ public class CaptureTheFlag extends GameMode
 	@Override
 	public Location getSpawnLocation(Player player)
 	{
-		if (finishedSetup)
+		if (!finishedSetup)
 		{
 			Location spawnPoint = getWorld(0).getSpawnLocation();
 			return Helper.getSafeSpawnLocationNear(spawnPoint);
