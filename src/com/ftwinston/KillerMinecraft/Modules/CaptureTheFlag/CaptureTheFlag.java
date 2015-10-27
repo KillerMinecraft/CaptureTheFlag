@@ -149,7 +149,7 @@ public class CaptureTheFlag extends GameMode
 	public boolean isLocationProtected(Location l, Player player)
 	{
 		for (FlagTeamInfo team : teams)
-			if (team.flagLocation != null && isWithinProtectionRange(l, team.flagLocation))
+			if (team.flagLocation != null && l.getBlock().getLocation() != team.flagLocation && isWithinProtectionRange(l, team.flagLocation))
 				return true;
 
 		return false;
