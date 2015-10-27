@@ -6,6 +6,7 @@ import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.Potion;
 import org.bukkit.potion.PotionType;
+import org.bukkit.util.Vector;
 
 public class ItemSpawner
 {
@@ -69,6 +70,7 @@ public class ItemSpawner
 				}
 				
 				Item item = location.getWorld().dropItem(location, stack);
+				item.setVelocity(new Vector(0,0,0));
 				spawnedItemID = item.getEntityId();
 				
 				// start checking to see if item was picked up

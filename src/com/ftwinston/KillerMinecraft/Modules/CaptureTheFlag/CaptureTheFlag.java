@@ -435,10 +435,10 @@ public class CaptureTheFlag extends GameMode
 				
 				for (int y = floorY + 1; y <= floorY + flagRoomDiameter; y++)
 				{
-					if (x == team.flagLocation.getBlockX() && z == team.flagLocation.getBlockZ() && y < team.flagLocation.getBlockY() + 2)
+					if (x == team.flagLocation.getBlockX() && z == team.flagLocation.getBlockZ() && y < floorY + 2)
 						continue; // don't break the flag by placing air over it 
 					
-					world.getBlockAt(x, floorY, z).setType(Material.AIR);
+					world.getBlockAt(x, y, z).setType(Material.AIR);
 				}
 			}
 	}
