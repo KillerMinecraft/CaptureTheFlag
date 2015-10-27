@@ -46,6 +46,9 @@ public class ItemSpawner
 				case Powerup:
 					delay = 1200L; break;
 				}
+
+				if (scheduledTaskID != -1)
+					game.getScheduler().cancelTask(scheduledTaskID);
 				
 				scheduledTaskID = game.getScheduler().scheduleSyncDelayedTask(game.getPlugin(), spawnItemTask, delay);
 			}
