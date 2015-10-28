@@ -45,12 +45,14 @@ import com.ftwinston.KillerMinecraft.Option;
 import com.ftwinston.KillerMinecraft.PlayerFilter;
 import com.ftwinston.KillerMinecraft.Configuration.NumericOption;
 import com.ftwinston.KillerMinecraft.Configuration.TeamInfo;
+import com.ftwinston.KillerMinecraft.Configuration.ToggleOption;
 import com.ftwinston.KillerMinecraft.Modules.CaptureTheFlag.FlagTeamInfo.FlagState;
 
 public class CaptureTheFlag extends GameMode
 {
 	private final Material floorMaterial = Material.QUARTZ_BLOCK;
 	NumericOption setupTime, scoreLimit;
+	ToggleOption breakableSpawners;
 	boolean finishedSetup;
 	int setupProcessID = -1;
 	static final long ticksPerMinute = 1200L;
@@ -75,7 +77,8 @@ public class CaptureTheFlag extends GameMode
 	{
 		setupTime = new NumericOption("Setup time, in minutes", 2, 8, Material.WATCH, 5);
 		scoreLimit = new NumericOption("Captures needed to win", 1, 5, Material.BANNER, 3);
-		return new Option[] { setupTime, scoreLimit };
+		breakableSpawners = new ToggleOption("Breakable item spawners", false, "Controls whether item spawners can be", "destroyed. If disabled, they are invincible.");
+		return new Option[] { setupTime, scoreLimit, breakableSpawners };
 	}
 	
 	FlagTeamInfo redTeam = new FlagTeamInfo() {
@@ -150,8 +153,12 @@ public class CaptureTheFlag extends GameMode
 	@Override
 	public boolean isLocationProtected(Location l, Player player)
 	{
-		if (l.getBlock().getType() == Material.STANDING_BANNER)
+		Material type = l.getBlock().getType();
+		if (type == Material.STANDING_BANNER)
 			return false;
+		
+		if (!breakableSpawners.isEnabled() && (type == Material.IRON_PLATE || type == Material.GOLD_PLATE))
+			return true;
 		
 		for (FlagTeamInfo team : teams)
 			if (team.flagLocation != null && isWithinProtectionRange(l, team.flagLocation))
@@ -689,12 +696,10 @@ public class CaptureTheFlag extends GameMode
 	@EventHandler(priority = EventPriority.HIGH)
 	public void onEvent(PrepareItemCraftEvent event)
 	{
-		// prevent crafting banners at all, and golden plates or iron plates during setup
+		// prevent crafting banners, golden plates or iron plates
 		Material type = event.getInventory().getResult().getType();
 		
-		if (type == Material.BANNER)
-			event.getInventory().setResult(null);
-		else if (!finishedSetup && (type == Material.GOLD_PLATE || type == Material.IRON_PLATE))
+		if (type == Material.BANNER || type == Material.GOLD_PLATE || type == Material.IRON_PLATE)
 			event.getInventory().setResult(null);
 	}
 	
