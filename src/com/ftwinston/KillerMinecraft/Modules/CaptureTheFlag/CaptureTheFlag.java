@@ -19,6 +19,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
@@ -26,6 +27,7 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -148,8 +150,11 @@ public class CaptureTheFlag extends GameMode
 	@Override
 	public boolean isLocationProtected(Location l, Player player)
 	{
+		if (l.getBlock().getType() == Material.STANDING_BANNER)
+			return false;
+		
 		for (FlagTeamInfo team : teams)
-			if (team.flagLocation != null && l.getBlock().getLocation() != team.flagLocation && isWithinProtectionRange(l, team.flagLocation))
+			if (team.flagLocation != null && isWithinProtectionRange(l, team.flagLocation))
 				return true;
 
 		return false;
@@ -176,11 +181,24 @@ public class CaptureTheFlag extends GameMode
 	public Environment[] getWorldsToGenerate() { return new Environment[] { Environment.NORMAL }; }
 	
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onPlayerDeath(PlayerDeathEvent event)
+	{
+		if (!finishedSetup)
+			event.setKeepInventory(true);
+	}
+	
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onBlockBreak(BlockBreakEvent event)
     {
 		Block b = event.getBlock();
 		if (b.getType() != Material.STANDING_BANNER)
-			return;		
+			return;
+		
+		if (!finishedSetup)
+		{
+			event.setCancelled(true);
+			return;
+		}
 		
 		FlagTeamInfo flagTeam; 
 		if (blockLocationsEqual(b.getLocation(), redTeam.flagLocation))
@@ -226,6 +244,21 @@ public class CaptureTheFlag extends GameMode
 		if (stack.getType() != Material.BANNER)
 			return;
 		
+		
+		if (event.getInventory().getHolder() == null || !(event.getInventory().getHolder() instanceof Player))
+		{
+			event.setCancelled(true);
+			return;
+		}
+	}
+	
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onEvent(PlayerPickupItemEvent event)
+	{
+		ItemStack stack = event.getItem().getItemStack(); 
+		if (stack.getType() != Material.BANNER)
+			return;
+		
 		FlagTeamInfo flagTeam = null;
 		for (FlagTeamInfo team : teams)
 			if (event.getItem().getEntityId() == team.droppedFlagEntityID)
@@ -237,13 +270,7 @@ public class CaptureTheFlag extends GameMode
 		if (flagTeam == null)
 			return;
 		
-		if (event.getInventory().getHolder() == null || !(event.getInventory().getHolder() instanceof Player))
-		{
-			event.setCancelled(true);
-			return;
-		}
-		
-		Player player = (Player)event.getInventory().getHolder();
+		Player player = event.getPlayer();
 		TeamInfo playerTeam = getTeam(player);
 		flagTeam.droppedFlagEntityID = -1;
 		
@@ -422,25 +449,44 @@ public class CaptureTheFlag extends GameMode
 			spawner.enable();
 	}
 
+	@SuppressWarnings("deprecation")
 	private void createFlagRoom(FlagTeamInfo team)
 	{
 		// clear some space, and add a floor
 		int floorY = team.flagLocation.getBlockY() - 1;
 		World world = getWorld(0);
 		
-		for (int x = team.flagLocation.getBlockX() - flagRoomDiameter; x <= team.flagLocation.getBlockX() + flagRoomDiameter; x++)
-			for (int z = team.flagLocation.getBlockZ() - flagRoomDiameter; z <= team.flagLocation.getBlockZ() + flagRoomDiameter; z++)
+		int flagX = team.flagLocation.getBlockX(), flagZ = team.flagLocation.getBlockZ();
+		for (int x = flagX - flagRoomDiameter; x <= flagX + flagRoomDiameter; x++)
+			for (int z = flagZ - flagRoomDiameter; z <= flagZ + flagRoomDiameter; z++)
 			{
 				world.getBlockAt(x, floorY, z).setType(floorMaterial);
 				
-				for (int y = floorY + 1; y <= floorY + flagRoomDiameter; y++)
+				for (int y = floorY + 1; y <= floorY + flagRoomDiameter + 1; y++)
 				{
-					if (x == team.flagLocation.getBlockX() && z == team.flagLocation.getBlockZ() && y < floorY + 2)
+					if (x == flagX && z == flagZ && y < floorY + 2)
 						continue; // don't break the flag by placing air over it 
 					
 					world.getBlockAt(x, y, z).setType(Material.AIR);
 				}
 			}
+		
+		for (int x = flagX - 1; x <= flagX + 1; x++)
+			for (int z = flagZ - 1; z <= flagZ + 1; z++)
+			{
+				// some floor decoration
+				Block b = world.getBlockAt(x, floorY, z);
+				b.setType(Material.WOOL);
+				b.setData(team.getDyeColor().getWoolData());
+				
+				if (x == flagX && z == flagZ)
+					continue;
+
+				// and pressure plates to "return" the flag by
+				b = world.getBlockAt(x, floorY + 1, z);
+				b.setType(Material.STONE_PLATE);
+			}
+
 	}
 
 	@Override
@@ -535,6 +581,7 @@ public class CaptureTheFlag extends GameMode
 		// increase score... if the limit is reached, win the game
 		int score = playerTeam.score.getScore() + 1;
 		playerTeam.score.setScore(score);
+		playerTeam.otherTeam.createBannerBlock(playerTeam.otherTeam.flagLocation);
 		
 		if (score >= scoreLimit.getValue())
 			finishGame();
@@ -611,25 +658,32 @@ public class CaptureTheFlag extends GameMode
 		if (!finishedSetup)
 			return;
 
-		// when respawning, if not in setup, spawn with a brief period of immobility
-		Player player = event.getPlayer();
-		player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, respawnDelayTicks, 50, false, false));
-		player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, respawnDelayTicks, 50, false, false));
-		player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, respawnDelayTicks, 50, false, false));
-		
-		// and invisibility
+		final Player player = event.getPlayer();
+		// respawning players can't be seen, briefly
 		for (Player other : getOnlinePlayers(new PlayerFilter().exclude(player)))
 			other.hidePlayer(player);
 		
-		final String playerName = event.getPlayer().getName();
 		getScheduler().scheduleSyncDelayedTask(getPlugin(), new Runnable() {
+			
+			@Override
 			public void run()
 			{
-				Player player = Helper.getPlayer(playerName);
-				for (Player other : getOnlinePlayers(new PlayerFilter().exclude(player)))
-					other.showPlayer(player);
+				// when respawning, if not in setup, spawn with a brief period of immobility
+				player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, respawnDelayTicks, 50, false, false));
+				player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, respawnDelayTicks, 50, false, false));
+				player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, respawnDelayTicks, 50, false, false));
+				
+				final String playerName = player.getName();
+				getScheduler().scheduleSyncDelayedTask(getPlugin(), new Runnable() {
+					public void run()
+					{
+						Player player = Helper.getPlayer(playerName);
+						for (Player other : getOnlinePlayers(new PlayerFilter().exclude(player)))
+							other.showPlayer(player);
+					}
+				}, (long)respawnDelayTicks);				
 			}
-		}, (long)respawnDelayTicks);
+		});
 	}
 	
 	@EventHandler(priority = EventPriority.HIGH)

@@ -2,6 +2,7 @@ package com.ftwinston.KillerMinecraft.Modules.CaptureTheFlag;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.Potion;
@@ -75,6 +76,9 @@ public class ItemSpawner
 				Item item = location.getWorld().dropItem(location, stack);
 				item.setVelocity(new Vector(0,0,0));
 				spawnedItemID = item.getEntityId();
+				
+				// play sound
+				location.getWorld().playSound(location, Sound.CHEST_CLOSE, 2f, 1f);
 				
 				// start checking to see if item was picked up
 				scheduledTaskID = game.getScheduler().scheduleSyncRepeatingTask(game.getPlugin(), checkPickupTask, 1, checkInterval);
@@ -206,6 +210,7 @@ public class ItemSpawner
 	{
 		ItemStack stack = new ItemStack(Material.POTION);
 		Potion potion = new Potion(type);
+		potion.setLevel(1);
 		potion.apply(stack);
 		return stack;
 	}
