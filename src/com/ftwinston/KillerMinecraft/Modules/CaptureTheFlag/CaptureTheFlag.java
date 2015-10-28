@@ -117,9 +117,9 @@ public class CaptureTheFlag extends GameMode
 			case 1:
 				return "Once that time is up, the game will start.";
 			case 2:
-				return "Choose wisely! You will have to defend the flag, but you need to be able to reach it, too.";
+				return "Choose wisely! You will have to defend your flag, but you need to be able to reach it, too.";
 			case 3:
-				return "Place the other team's flag next to yours to capture it.";
+				return "Carry the other team's flag back to your own, to capture it.";
 			default:
 				return null;
 		}
