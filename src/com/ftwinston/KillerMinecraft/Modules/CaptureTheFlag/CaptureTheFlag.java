@@ -156,9 +156,6 @@ public class CaptureTheFlag extends GameMode
 		if (type == Material.STANDING_BANNER)
 			return false;
 		
-		if (!breakableSpawners.isEnabled() && (type == Material.IRON_PLATE || type == Material.GOLD_PLATE))
-			return true;
-		
 		for (FlagTeamInfo team : teams)
 			if (team.flagLocation != null && isWithinProtectionRange(l, team.flagLocation))
 				return true;
@@ -197,6 +194,13 @@ public class CaptureTheFlag extends GameMode
 	public void onBlockBreak(BlockBreakEvent event)
     {
 		Block b = event.getBlock();
+		
+		if (!breakableSpawners.isEnabled() && (b.getType() == Material.GOLD_PLATE || b.getType() == Material.IRON_PLATE))
+		{
+			event.setCancelled(true);
+			return;
+		}
+		
 		if (b.getType() != Material.STANDING_BANNER)
 			return;
 		
