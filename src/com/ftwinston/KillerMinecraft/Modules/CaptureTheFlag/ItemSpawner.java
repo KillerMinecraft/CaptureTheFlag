@@ -178,39 +178,39 @@ public class ItemSpawner
 		case 4:
 			return new ItemStack(Material.COAL, 16);
 		case 5:
-			return new ItemStack(Material.SLIME_BLOCK, 2);
+			return new ItemStack(Material.SLIME_BLOCK, 6);
 		case 6:
-			return new ItemStack(Material.SOUL_SAND, 6);
+			return new ItemStack(Material.SOUL_SAND, 12);
 		case 7:
 		case 8:
-			return createPotion(PotionType.INVISIBILITY);
+			return createPotion(PotionType.INVISIBILITY, 1);
 		case 9:
 		case 10:
-			return createPotion(PotionType.SPEED);
+			return createPotion(PotionType.SPEED, 1);
 		case 11:
 		case 12:
-			return createPotion(PotionType.STRENGTH);
+			return createPotion(PotionType.STRENGTH, 1);
 		case 13:
 		case 14:
-			return createPotion(PotionType.INSTANT_HEAL);
+			return createPotion(PotionType.INSTANT_HEAL, 2);
 		case 15:
-			return createPotion(PotionType.JUMP);
+			return createPotion(PotionType.JUMP, 2);
 		case 16:
-			return createPotion(PotionType.NIGHT_VISION);
+			return createPotion(PotionType.NIGHT_VISION, 1);
 		case 17:
-			return createPotion(PotionType.REGEN);
+			return createPotion(PotionType.REGEN, 1);
 		case 18:
-			return createPotion(PotionType.WATER_BREATHING);
+			return createPotion(PotionType.WATER_BREATHING, 1);
 		case 19:
-			return createPotion(PotionType.FIRE_RESISTANCE);
+			return createPotion(PotionType.FIRE_RESISTANCE, 1);
 		}
 	}
 
-	private ItemStack createPotion(PotionType type)
+	private ItemStack createPotion(PotionType type, int level)
 	{
 		ItemStack stack = new ItemStack(Material.POTION);
 		Potion potion = new Potion(type);
-		potion.setLevel(1);
+		potion.setLevel(level);
 		potion.apply(stack);
 		return stack;
 	}

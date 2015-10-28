@@ -654,14 +654,16 @@ public class CaptureTheFlag extends GameMode
 	
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void onEvent(InventoryClickEvent event) {
+		if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.BANNER)
+			return;
+		
         Inventory top = event.getView().getTopInventory();
         Inventory bottom = event.getView().getBottomInventory();
 
         // don't let players place the flag into any other inventory
-        if(top != null && bottom != null && top.getType() != InventoryType.PLAYER)
-            if(event.getCurrentItem() != null && event.getCurrentItem().getType() == Material.BANNER)
-            	if (event.getRawSlot() > top.getSize())
-                    event.setCancelled(true);
+        if (top != null && bottom != null && top.getType() != InventoryType.PLAYER)
+        	if (event.getRawSlot() > top.getSize())
+                event.setCancelled(true);
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
