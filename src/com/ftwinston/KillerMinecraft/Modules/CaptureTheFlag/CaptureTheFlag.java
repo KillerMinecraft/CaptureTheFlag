@@ -550,7 +550,7 @@ public class CaptureTheFlag extends GameMode
 			{
 				if (flagTeam == null)
 					return;
-				flagTeam.flagLocation = event.getBlock().getLocation();
+				flagTeam.flagLocation = event.getBlock().getLocation().add(0.5, 0, 0.5);
 				createFlagRoom(flagTeam);
 			}
 		}
