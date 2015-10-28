@@ -506,12 +506,14 @@ public class CaptureTheFlag extends GameMode
 		// for the flag carrier, compass should point at their own flag location
 		if (player.getInventory().contains(Material.BANNER))
 		{
-			return playerTeam.flagLocation;
+			return playerTeam == null || playerTeam.flagLocation == null ? null : playerTeam.flagLocation;
 		}
 		
 		switch (playerTeam.otherTeam.flagState)
 		{
 		case Safe: // point at enemy flag room
+			if (playerTeam == null || playerTeam.otherTeam == null)
+				return null;
 			return playerTeam.otherTeam.flagLocation;
 			
 		case Carried: // point at friendly carrier of enemy flag
