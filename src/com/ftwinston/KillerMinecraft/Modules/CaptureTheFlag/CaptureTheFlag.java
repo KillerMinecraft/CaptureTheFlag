@@ -111,21 +111,20 @@ public class CaptureTheFlag extends GameMode
 	FlagTeamInfo[] teams = new FlagTeamInfo[] { redTeam, blueTeam };
 	
 	@Override
-	public String getHelpMessage(int num, TeamInfo team)
+	public List<String> getHelpMessages(TeamInfo team)
 	{
-		switch ( num )
-		{
-			case 0:
-				return "Teams have " + setupTime.getValue() + " minutes to place their flags somewhere.";
-			case 1:
-				return "Once that time is up, the game will start.";
-			case 2:
-				return "Choose wisely! You will have to defend your flag, but you need to be able to reach it, too.";
-			case 3:
-				return "Carry the other team's flag back to your own, to capture it.";
-			default:
-				return null;
-		}
+		LinkedList<String> messages = new LinkedList<String>();
+		messages.add("Teams have " + setupTime.getValue() + " minutes to place their flags somewhere.");
+		messages.add("Once that time is up, the game will start.");
+		messages.add("Choose wisely! You will have to defend your flag, but you need to be able to reach it, too.");
+		messages.add("Carry the other team's flag back to your own, to capture it.");
+		
+		if (breakableSpawners.isEnabled())
+			messages.add("Item spawners can be destroyed, so defend them carefully.");
+		else
+			messages.add("Item spawners are indestructible, so place them carefully.");
+
+		return messages;
 	}
 	
 	Objective objective;
