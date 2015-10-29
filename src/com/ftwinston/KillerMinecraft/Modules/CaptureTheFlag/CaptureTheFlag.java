@@ -56,7 +56,7 @@ public class CaptureTheFlag extends GameMode
 	boolean finishedSetup;
 	int setupProcessID = -1;
 	static final long ticksPerMinute = 1200L;
-	static final int flagRoomDiameter = 3, respawnDelayTicks = 120;
+	static final int flagRoomDiameter = 3, respawnDelayTicks = 120, automaticFlagRecoveryDelay = 500;
 
 	LinkedList<ItemSpawner> spawners;
 	
@@ -81,7 +81,7 @@ public class CaptureTheFlag extends GameMode
 		return new Option[] { setupTime, scoreLimit, breakableSpawners };
 	}
 	
-	FlagTeamInfo redTeam = new FlagTeamInfo() {
+	FlagTeamInfo redTeam = new FlagTeamInfo(this) {
 		@Override
 		public String getName() { return "red team"; }
 		
@@ -94,7 +94,7 @@ public class CaptureTheFlag extends GameMode
 		@Override
 		public DyeColor getAccentColor() { return DyeColor.YELLOW; }
 	};
-	FlagTeamInfo blueTeam = new FlagTeamInfo() {
+	FlagTeamInfo blueTeam = new FlagTeamInfo(this) {
 		@Override
 		public String getName() { return "blue team"; }
 		
@@ -239,7 +239,7 @@ public class CaptureTheFlag extends GameMode
 		event.setCancelled(true);
 		event.getBlock().setType(Material.AIR);
 		event.getPlayer().getInventory().addItem(flagTeam.createBannerItem());
-		flagTeam.flagState = FlagState.Carried;
+		flagTeam.setFlagState(FlagState.Carried);
 	}
 	
 	private boolean blockLocationsEqual(Location a, Location b)
@@ -282,7 +282,6 @@ public class CaptureTheFlag extends GameMode
 		
 		Player player = event.getPlayer();
 		TeamInfo playerTeam = getTeam(player);
-		flagTeam.droppedFlagEntityID = -1;
 		
 		if (playerTeam == flagTeam)
 		{
@@ -290,13 +289,12 @@ public class CaptureTheFlag extends GameMode
 			
 			event.setCancelled(true);
 			event.getItem().remove();
-			flagTeam.createBannerBlock(flagTeam.flagLocation);
-			flagTeam.flagState = FlagState.Safe;
+			flagTeam.setFlagState(FlagState.Safe);
 		}
 		else
 		{
 			broadcastMessage(player.getName() + " picked up the " + flagTeam.getChatColor() + flagTeam.getName() + ChatColor.RESET + " flag!");
-			flagTeam.flagState = FlagState.Carried;
+			flagTeam.setFlagState(FlagState.Carried);
 		}
 	}
 	
@@ -329,7 +327,7 @@ public class CaptureTheFlag extends GameMode
 				return;
 
 			broadcastMessage(event.getPlayer().getName() + " dropped the " + flagTeam.getChatColor() + flagTeam.getName() + ChatColor.RESET + " flag!");
-			flagTeam.flagState = FlagState.Dropped;
+			flagTeam.setFlagState(FlagState.Dropped);
 			flagTeam.droppedFlagEntityID = event.getItemDrop().getEntityId();
 		}
     }
@@ -421,7 +419,7 @@ public class CaptureTheFlag extends GameMode
 				{
 					// force-place this team's banner, wherever the carrying player currently is
 					team.flagLocation = player.getLocation();
-					team.createBannerBlock(team.flagLocation);
+					team.createBannerBlock();
 					createFlagRoom(team);
 				}
 				
@@ -450,7 +448,7 @@ public class CaptureTheFlag extends GameMode
 			else
 			{
 				team.flagLocation = players.get(0).getLocation();
-				team.createBannerBlock(team.flagLocation);
+				team.createBannerBlock();
 				createFlagRoom(team);
 			}
 		}
@@ -593,7 +591,7 @@ public class CaptureTheFlag extends GameMode
 		// increase score... if the limit is reached, win the game
 		int score = playerTeam.score.getScore() + 1;
 		playerTeam.score.setScore(score);
-		playerTeam.otherTeam.createBannerBlock(playerTeam.otherTeam.flagLocation);
+		playerTeam.otherTeam.createBannerBlock();
 		
 		if (score >= scoreLimit.getValue())
 			finishGame();
@@ -621,9 +619,7 @@ public class CaptureTheFlag extends GameMode
 		for (FlagTeamInfo team : teams)
 			if (team.flagState == FlagState.Dropped && entity.getEntityId() == team.droppedFlagEntityID)
 			{
-				team.createBannerBlock(team.flagLocation);
-				team.flagState = FlagState.Safe;
-				team.droppedFlagEntityID = -1;
+				team.setFlagState(FlagState.Safe);
 				broadcastMessage("The " + team.getChatColor() + team.getName() + ChatColor.RESET + " flag was returned");
 			}
 	}
@@ -637,9 +633,7 @@ public class CaptureTheFlag extends GameMode
 		for (FlagTeamInfo team : teams)
 			if (team.flagState == FlagState.Dropped && event.getEntity().getEntityId() == team.droppedFlagEntityID)
 			{
-				team.createBannerBlock(team.flagLocation);
-				team.flagState = FlagState.Safe;
-				team.droppedFlagEntityID = -1;
+				team.setFlagState(FlagState.Safe);
 				broadcastMessage("The " + team.getChatColor() + team.getName() + ChatColor.RESET + " flag was returned");
 			}		
 	}
@@ -725,6 +719,9 @@ public class CaptureTheFlag extends GameMode
 			getScheduler().cancelTask(setupProcessID);
 			setupProcessID = -1;
 		}
+	
+		for (FlagTeamInfo team : teams)
+			team.setFlagState(FlagState.Safe);
 		
 		for (ItemSpawner spawner : spawners)
 			spawner.disable();
